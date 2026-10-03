@@ -17,7 +17,7 @@ export const createFeedGenerator = <
   config: FeedGeneratorConfiguration,
   feedDataProvider: FeedDataProvider<TFeedDataOptions>,
   downloadManager?: DownloadManager<TDownloadOptions>,
-  mapFeedOptionsToDownloadOptions?: (feedOptions: TFeedDataOptions | undefined) => TDownloadOptions | undefined,
+  mapFeedOptionsToDownloadOptions?: (feedOptions: TFeedDataOptions) => TDownloadOptions | undefined,
 ) => {
   const generatePodcastFeed = async (feedId: string, options: TFeedDataOptions) => {
     const feedData = await feedDataProvider.getFeedDataWithContent(feedId, options);
