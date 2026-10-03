@@ -47,8 +47,9 @@ export const createFeedGenerator = <
         itunesTitle: content.title,
         description: content.description,
         date: content.date,
-        url: content.sourceUrl,
         itunesDuration: content.duration,
+        url: content.sourceUrl,
+        itunesImage: content.imageUrl,
         enclosure: {
           url: content.contentUrl,
           type: content.mimeType === 'application/x-mpegURL' ? 'video/mp4' : content.mimeType,
