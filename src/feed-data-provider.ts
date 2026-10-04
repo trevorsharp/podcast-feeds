@@ -24,7 +24,7 @@ export const createFeedDataProvider = ({
 
   const getFeedData = withCache(
     {
-      cacheKey: 'feed-data',
+      cacheKey: (feedId, { baseUrl }) => `feed-data-${feedId}-${baseUrl}`,
       timeToLive: config.cacheFeedDataTimeToLive,
     },
     fetchFeedData,
@@ -32,7 +32,7 @@ export const createFeedDataProvider = ({
 
   const getFeedContent = withCache(
     {
-      cacheKey: 'feed-content',
+      cacheKey: ({ feedId }, { baseUrl }) => `feed-content-${feedId}-${baseUrl}`,
       timeToLive: config.cacheFeedContentTimeToLive,
     },
     fetchFeedContent,

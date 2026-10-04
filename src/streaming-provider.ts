@@ -16,7 +16,7 @@ export const createStreamingProvider = ({ configuration, fetchStreamingUrl }: Cr
 
   const getStreamingUrl = withCache(
     {
-      cacheKey: 'streaming-url',
+      cacheKey: (contentId) => `streaming-url-${contentId}`,
       timeToLive: config.cacheStreamingUrlTimeToLive,
     },
     fetchStreamingUrl,
