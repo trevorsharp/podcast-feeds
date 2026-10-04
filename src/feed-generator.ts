@@ -1,6 +1,7 @@
 import { Podcast } from 'podcast';
 
 import type { FeedDataProvider } from './feed-data-provider';
+import { mimeTypes } from './utilities/mimeTypes';
 
 type CreateFeedGeneratorOptions = { feedDataProvider: FeedDataProvider };
 
@@ -32,14 +33,14 @@ export const createFeedGenerator = ({ feedDataProvider }: CreateFeedGeneratorOpt
         itunesImage: content.imageUrl,
         enclosure: {
           url: content.contentUrl,
-          type: content.contentType === 'MP3' ? 'audio/mp3' : 'video/mp4',
+          type: mimeTypes[content.contentType],
         },
         customElements:
           content.contentType === 'HLS'
             ? [
                 {
                   'podcast:alternateEnclosure': [
-                    { _attr: { type: 'application/x-mpegURL', length: 0 } },
+                    { _attr: { type: mimeTypes.HLS_ALTERNATE, length: 0 } },
                     { 'podcast:source': { _attr: { uri: content.contentUrl } } },
                   ],
                 },

@@ -14,7 +14,7 @@ export type FeedContent = {
   date: Date;
   duration?: number | undefined;
   contentUrl: string;
-  contentType: 'MP4' | 'HLS' | 'MP3';
+  contentType: 'MP4' | 'HLS' | 'MP3' | 'M4B';
   sourceUrl: string;
   imageUrl?: string;
 };
