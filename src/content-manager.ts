@@ -1,4 +1,5 @@
 import { readdir } from 'node:fs/promises';
+import { join } from 'node:path';
 
 import * as z from 'zod';
 
@@ -24,7 +25,7 @@ export const createContentManager = async ({ configuration }: createContentManag
     }
   }
 
-  const getContentFilePath = (contentId: string) => `${config.contentFolder}/${config.getContentFileName(contentId)}`;
+  const getContentFilePath = (contentId: string) => join(config.contentFolder, config.getContentFileName(contentId));
 
   const getContent = async (contentId: string) => {
     const fileName = config.getContentFileName(contentId);
