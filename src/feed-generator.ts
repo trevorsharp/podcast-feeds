@@ -1,8 +1,8 @@
 import { Podcast } from 'podcast';
 import * as z from 'zod';
 
-import type { BaseDownloadOptions, DownloadManager } from './download-manager';
-import type { BaseFeedOptions, FeedDataProvider } from './feed-data-provider';
+import type { DownloadManager } from './download-manager';
+import type { FeedDataProvider } from './feed-data-provider';
 
 export const feedGeneratorConfigurationSchema = z.object({
   downloadLatestNumberOfItems: z.number().min(0).default(0),
@@ -10,28 +10,26 @@ export const feedGeneratorConfigurationSchema = z.object({
 
 export type FeedGeneratorConfiguration = z.infer<typeof feedGeneratorConfigurationSchema>;
 
-export const createFeedGenerator = <
-  TFeedDataOptions extends BaseFeedOptions = BaseFeedOptions,
-  TDownloadOptions extends BaseDownloadOptions = BaseDownloadOptions,
->(
-  configuration: unknown,
-  feedDataProvider: FeedDataProvider<TFeedDataOptions>,
-  downloadManager?: DownloadManager<TDownloadOptions>,
-  mapFeedOptionsToDownloadOptions?: (feedOptions: TFeedDataOptions) => TDownloadOptions | undefined,
-) => {
+export const createFeedGenerator = ({
+  configuration,
+  feedDataProvider,
+  downloadManager,
+}: {
+  configuration?: Partial<FeedGeneratorConfiguration> | undefined;
+  feedDataProvider: FeedDataProvider;
+  downloadManager?: DownloadManager;
+}) => {
   const config = feedGeneratorConfigurationSchema.parse(configuration);
 
-  const generatePodcastFeed = async (feedId: string, options: TFeedDataOptions) => {
+  const generatePodcastFeed = async (feedId: string, options: { baseUrl: string }) => {
     const feedData = await feedDataProvider.getFeedDataWithContent(feedId, options);
 
     const { downloadLatestNumberOfItems } = config;
 
     if (downloadLatestNumberOfItems) {
-      const downloadOptions = mapFeedOptionsToDownloadOptions?.(options);
-
       feedData.content
         .filter((_, index) => index < downloadLatestNumberOfItems)
-        .forEach(({ contentId }) => downloadManager?.addToDownloadQueue(contentId, downloadOptions));
+        .forEach(({ contentId }) => downloadManager?.addToDownloadQueue(contentId));
     }
 
     const rssFeed = new Podcast({
@@ -76,7 +74,4 @@ export const createFeedGenerator = <
   return { generatePodcastFeed };
 };
 
-export type FeedGenerator<
-  TFeedDataOptions extends BaseFeedOptions = BaseFeedOptions,
-  TDownloadOptions extends BaseDownloadOptions = BaseDownloadOptions,
-> = ReturnType<typeof createFeedGenerator<TFeedDataOptions, TDownloadOptions>>;
+export type FeedGenerator = ReturnType<typeof createFeedGenerator>;

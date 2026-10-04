@@ -9,10 +9,6 @@ export const feedDataProviderConfigurationSchema = z.object({
 
 export type FeedDataProviderConfiguration = z.infer<typeof feedDataProviderConfigurationSchema>;
 
-export type BaseFeedOptions = { baseUrl: string };
-
-export type ContentMimeType = 'video/mp4' | 'application/x-mpegURL' | 'audio/mp3';
-
 export type FeedData = {
   feedId: string;
   title: string;
@@ -29,17 +25,21 @@ export type FeedContent = {
   date: Date;
   duration?: number | undefined;
   contentUrl: string;
-  mimeType: ContentMimeType;
+  mimeType: 'video/mp4' | 'application/x-mpegURL' | 'audio/mp3';
   sourceUrl: string;
   imageUrl?: string;
 };
 
-export const createFeedDataProvider = <TFeedDataOptions extends BaseFeedOptions = BaseFeedOptions>(
-  configuration: unknown,
-  fetchFeedData: (feedId: string, options: TFeedDataOptions) => Promise<FeedData>,
-  fetchFeedContent: (feedData: FeedData, options: TFeedDataOptions) => Promise<FeedContent[]>,
-) => {
-  const config = feedDataProviderConfigurationSchema.parse(configuration);
+export const createFeedDataProvider = ({
+  configuration,
+  fetchFeedData,
+  fetchFeedContent,
+}: {
+  configuration?: Partial<FeedDataProviderConfiguration> | undefined;
+  fetchFeedData: (feedId: string, options: { baseUrl: string }) => Promise<FeedData>;
+  fetchFeedContent: (feedData: FeedData, options: { baseUrl: string }) => Promise<FeedContent[]>;
+}) => {
+  const config = feedDataProviderConfigurationSchema.parse(configuration ?? {});
 
   const getFeedData = withCache(
     {
@@ -57,7 +57,7 @@ export const createFeedDataProvider = <TFeedDataOptions extends BaseFeedOptions 
     fetchFeedContent,
   );
 
-  const getFeedDataWithContent = async (feedId: string, options: TFeedDataOptions) => {
+  const getFeedDataWithContent = async (feedId: string, options: { baseUrl: string }) => {
     const feedData = await getFeedData(feedId, options);
     const content = await getFeedContent(feedData, options);
     return { ...feedData, content };
@@ -66,6 +66,4 @@ export const createFeedDataProvider = <TFeedDataOptions extends BaseFeedOptions 
   return { getFeedDataWithContent };
 };
 
-export type FeedDataProvider<TFeedDataOptions extends BaseFeedOptions = BaseFeedOptions> = ReturnType<
-  typeof createFeedDataProvider<TFeedDataOptions>
->;
+export type FeedDataProvider = ReturnType<typeof createFeedDataProvider>;

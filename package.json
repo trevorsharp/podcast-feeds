@@ -21,6 +21,7 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "hono": "4.13.12",
     "node-cache": "5.1.2",
     "podcast": "^2.0.1",
     "zod": "4.6.5"

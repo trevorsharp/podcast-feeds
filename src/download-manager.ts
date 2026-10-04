@@ -6,13 +6,14 @@ export const downloadManagerConfigurationSchema = z.object({
 
 export type DownloadManagerConfiguration = z.infer<typeof downloadManagerConfigurationSchema>;
 
-export type BaseDownloadOptions = { addToFrontOfQueue?: boolean } | undefined;
-
-export const createDownloadManager = <TDownloadOptions extends BaseDownloadOptions = BaseDownloadOptions>(
-  configuration: unknown,
-  downloadContent: (contentId: string, options?: TDownloadOptions) => Promise<void>,
-) => {
-  const config = downloadManagerConfigurationSchema.parse(configuration);
+export const createDownloadManager = ({
+  configuration,
+  downloadContent,
+}: {
+  configuration?: Partial<DownloadManagerConfiguration> | undefined;
+  downloadContent: (contentId: string) => Promise<void>;
+}) => {
+  const config = downloadManagerConfigurationSchema.parse(configuration ?? {});
 
   let currentDownloadCount = 0;
   const queue = new Array<() => Promise<void>>();
@@ -41,8 +42,8 @@ export const createDownloadManager = <TDownloadOptions extends BaseDownloadOptio
     }
   };
 
-  const addToDownloadQueue = (contentId: string, options?: TDownloadOptions) => {
-    const downloadTask = () => downloadContent(contentId, options);
+  const addToDownloadQueue = (contentId: string, options?: { addToFrontOfQueue?: boolean }) => {
+    const downloadTask = () => downloadContent(contentId);
 
     if (options?.addToFrontOfQueue) {
       queue.unshift(downloadTask);
@@ -56,6 +57,4 @@ export const createDownloadManager = <TDownloadOptions extends BaseDownloadOptio
   return { addToDownloadQueue };
 };
 
-export type DownloadManager<TDownloadOptions extends BaseDownloadOptions = BaseDownloadOptions> = ReturnType<
-  typeof createDownloadManager<TDownloadOptions>
->;
+export type DownloadManager = ReturnType<typeof createDownloadManager>;

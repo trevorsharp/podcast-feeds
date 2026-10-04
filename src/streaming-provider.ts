@@ -8,13 +8,14 @@ export const streamingProviderConfigurationSchema = z.object({
 
 export type StreamingProviderConfiguration = z.infer<typeof streamingProviderConfigurationSchema>;
 
-export type BaseStreamingOptions = object | undefined;
-
-export const createStreamingProvider = <TStreamingOptions extends BaseStreamingOptions = BaseStreamingOptions>(
-  configuration: unknown,
-  fetchStreamingUrl: (contentId: string, options?: TStreamingOptions) => Promise<string>,
-) => {
-  const config = streamingProviderConfigurationSchema.parse(configuration);
+export const createStreamingProvider = ({
+  configuration,
+  fetchStreamingUrl,
+}: {
+  configuration?: Partial<StreamingProviderConfiguration> | undefined;
+  fetchStreamingUrl: (contentId: string) => Promise<string>;
+}) => {
+  const config = streamingProviderConfigurationSchema.parse(configuration ?? {});
 
   const getStreamingUrl = withCache(
     {
@@ -27,6 +28,4 @@ export const createStreamingProvider = <TStreamingOptions extends BaseStreamingO
   return { getStreamingUrl };
 };
 
-export type StreamingProvider<TStreamingOptions extends BaseStreamingOptions = BaseStreamingOptions> = ReturnType<
-  typeof createStreamingProvider<TStreamingOptions>
->;
+export type StreamingProvider = ReturnType<typeof createStreamingProvider>;
