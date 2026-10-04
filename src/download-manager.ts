@@ -6,9 +6,11 @@ export const downloadManagerConfigurationSchema = z.object({
 
 export type DownloadManagerConfiguration = z.infer<typeof downloadManagerConfigurationSchema>;
 
-export const createDownloadManager = <TDownloadOptions extends object | undefined = undefined>(
+export type BaseDownloadOptions = { addToFrontOfQueue?: boolean } | undefined;
+
+export const createDownloadManager = <TDownloadOptions extends BaseDownloadOptions = BaseDownloadOptions>(
   config: DownloadManagerConfiguration,
-  downloadContent: (contentId: string, options?: TDownloadOptions | undefined) => Promise<void>,
+  downloadContent: (contentId: string, options?: TDownloadOptions) => Promise<void>,
 ) => {
   let currentDownloadCount = 0;
   const queue = new Array<() => Promise<void>>();
@@ -37,10 +39,7 @@ export const createDownloadManager = <TDownloadOptions extends object | undefine
     }
   };
 
-  const addToDownloadQueue = (
-    contentId: string,
-    options?: ({ addToFrontOfQueue?: boolean } & TDownloadOptions) | undefined,
-  ) => {
+  const addToDownloadQueue = (contentId: string, options?: TDownloadOptions) => {
     const downloadTask = () => downloadContent(contentId, options);
 
     if (options?.addToFrontOfQueue) {
@@ -55,6 +54,6 @@ export const createDownloadManager = <TDownloadOptions extends object | undefine
   return { addToDownloadQueue };
 };
 
-export type DownloadManager<TDownloadOptions extends object | undefined = undefined> = ReturnType<
+export type DownloadManager<TDownloadOptions extends BaseDownloadOptions = BaseDownloadOptions> = ReturnType<
   typeof createDownloadManager<TDownloadOptions>
 >;

@@ -1,8 +1,8 @@
 import { Podcast } from 'podcast';
 import * as z from 'zod';
 
-import type { DownloadManager } from './download-manager';
-import type { FeedDataProvider } from './feed-data-provider';
+import type { BaseDownloadOptions, DownloadManager } from './download-manager';
+import type { BaseFeedOptions, FeedDataProvider } from './feed-data-provider';
 
 export const feedGeneratorConfigurationSchema = z.object({
   downloadLatestNumberOfItems: z.number().min(0).default(0),
@@ -11,8 +11,8 @@ export const feedGeneratorConfigurationSchema = z.object({
 export type FeedGeneratorConfiguration = z.infer<typeof feedGeneratorConfigurationSchema>;
 
 export const createFeedGenerator = <
-  TFeedDataOptions extends { baseUrl: string } = { baseUrl: string },
-  TDownloadOptions extends object | undefined = undefined,
+  TFeedDataOptions extends BaseFeedOptions = BaseFeedOptions,
+  TDownloadOptions extends BaseDownloadOptions = BaseDownloadOptions,
 >(
   config: FeedGeneratorConfiguration,
   feedDataProvider: FeedDataProvider<TFeedDataOptions>,
@@ -25,7 +25,7 @@ export const createFeedGenerator = <
     const { downloadLatestNumberOfItems } = config;
 
     if (downloadLatestNumberOfItems) {
-      const downloadOptions = mapFeedOptionsToDownloadOptions ? mapFeedOptionsToDownloadOptions(options) : undefined;
+      const downloadOptions = mapFeedOptionsToDownloadOptions?.(options);
 
       feedData.content
         .filter((_, index) => index < downloadLatestNumberOfItems)
@@ -75,6 +75,6 @@ export const createFeedGenerator = <
 };
 
 export type FeedGenerator<
-  TFeedDataOptions extends { baseUrl: string } = { baseUrl: string },
-  TDownloadOptions extends object | undefined = undefined,
+  TFeedDataOptions extends BaseFeedOptions = BaseFeedOptions,
+  TDownloadOptions extends BaseDownloadOptions = BaseDownloadOptions,
 > = ReturnType<typeof createFeedGenerator<TFeedDataOptions, TDownloadOptions>>;

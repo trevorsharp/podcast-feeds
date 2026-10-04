@@ -1,5 +1,6 @@
-import NodeCache from 'node-cache';
 import * as z from 'zod';
+
+import { withCache } from './utilities/cache';
 
 export const feedDataProviderConfigurationSchema = z.object({
   cacheFeedDataTimeToLive: z.number().default(0),
@@ -7,6 +8,8 @@ export const feedDataProviderConfigurationSchema = z.object({
 });
 
 export type FeedDataProviderConfiguration = z.infer<typeof feedDataProviderConfigurationSchema>;
+
+export type BaseFeedOptions = { baseUrl: string };
 
 export type ContentMimeType = 'video/mp4' | 'application/x-mpegURL' | 'audio/mp3';
 
@@ -31,58 +34,36 @@ export type FeedContent = {
   imageUrl?: string;
 };
 
-export const createFeedDataProvider = <TFeedDataOptions extends { baseUrl: string } = { baseUrl: string }>(
+export const createFeedDataProvider = <TFeedDataOptions extends BaseFeedOptions = BaseFeedOptions>(
   config: FeedDataProviderConfiguration,
   fetchFeedData: (feedId: string, options: TFeedDataOptions) => Promise<FeedData>,
   fetchFeedContent: (feedData: FeedData, options: TFeedDataOptions) => Promise<FeedContent[]>,
 ) => {
-  const cache = new NodeCache();
+  const getFeedData = withCache(
+    {
+      cacheKey: 'feed-data',
+      timeToLive: config.cacheFeedDataTimeToLive,
+    },
+    fetchFeedData,
+  );
+
+  const getFeedContent = withCache(
+    {
+      cacheKey: 'feed-content',
+      timeToLive: config.cacheFeedContentTimeToLive,
+    },
+    fetchFeedContent,
+  );
 
   const getFeedDataWithContent = async (feedId: string, options: TFeedDataOptions) => {
-    const feedDataCacheKey = `feed-data-${feedId}`;
-
-    const cachedFeedData = cache.get<FeedData>(feedDataCacheKey);
-
-    if (cachedFeedData) {
-      const content = await getFeedContent(cachedFeedData, options);
-      return { ...cachedFeedData, content };
-    }
-
-    const feedData = await fetchFeedData(feedId, options);
-
-    const { cacheFeedDataTimeToLive } = config;
-
-    if (cacheFeedDataTimeToLive) {
-      cache.set(feedDataCacheKey, { ...feedData, content: undefined }, cacheFeedDataTimeToLive);
-    }
-
+    const feedData = await getFeedData(feedId, options);
     const content = await getFeedContent(feedData, options);
     return { ...feedData, content };
-  };
-
-  const getFeedContent = async (feedData: FeedData, options: TFeedDataOptions) => {
-    const feedContentCacheKey = `feed-content-${feedData.feedId}`;
-
-    const cachedFeedContent = cache.get<FeedContent[]>(feedContentCacheKey);
-
-    if (cachedFeedContent) {
-      return cachedFeedContent;
-    }
-
-    const feedContent = await fetchFeedContent(feedData, options);
-
-    const { cacheFeedContentTimeToLive } = config;
-
-    if (cacheFeedContentTimeToLive) {
-      cache.set(feedContentCacheKey, feedContent, cacheFeedContentTimeToLive);
-    }
-
-    return feedContent;
   };
 
   return { getFeedDataWithContent };
 };
 
-export type FeedDataProvider<TFeedDataOptions extends { baseUrl: string } = { baseUrl: string }> = ReturnType<
+export type FeedDataProvider<TFeedDataOptions extends BaseFeedOptions = BaseFeedOptions> = ReturnType<
   typeof createFeedDataProvider<TFeedDataOptions>
 >;
