@@ -6,6 +6,15 @@
     "lint": "tsc --noEmit && prettier --check . && eslint .",
     "prettier": "prettier --write ."
   },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "hono": "4.13.12",
+    "node-cache": "5.1.2",
+    "podcast": "^2.0.1",
+    "zod": "4.6.5"
+  },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/bun": "latest",
@@ -16,14 +25,5 @@
     "jiti": "2.7.0",
     "prettier": "3.9.9",
     "typescript-eslint": "8.71.0"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  },
-  "dependencies": {
-    "hono": "4.13.12",
-    "node-cache": "5.1.2",
-    "podcast": "^2.0.1",
-    "zod": "4.6.5"
   }
 }

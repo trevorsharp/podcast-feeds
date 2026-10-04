@@ -1,13 +1,7 @@
 import * as z from 'zod';
 
 import { withCache } from './utilities/cache';
-
-export const feedDataProviderConfigurationSchema = z.object({
-  cacheFeedDataTimeToLive: z.number().default(0),
-  cacheFeedContentTimeToLive: z.number().default(0),
-});
-
-export type FeedDataProviderConfiguration = z.infer<typeof feedDataProviderConfigurationSchema>;
+import type { PartialShape } from './utilities/zod';
 
 export type FeedData = {
   feedId: string;
@@ -30,16 +24,25 @@ export type FeedContent = {
   imageUrl?: string;
 };
 
+export const feedDataProviderConfigurationSchema = z.object({
+  cacheFeedDataTimeToLive: z.number().default(0),
+  cacheFeedContentTimeToLive: z.number().default(0),
+});
+
+type Configuration = PartialShape<typeof feedDataProviderConfigurationSchema.shape>;
+
+type CreateFeedDataProviderOptions = {
+  configuration: Configuration;
+  fetchFeedData: (feedId: string, options: { baseUrl: string }) => Promise<FeedData>;
+  fetchFeedContent: (feedData: FeedData, options: { baseUrl: string }) => Promise<FeedContent[]>;
+};
+
 export const createFeedDataProvider = ({
   configuration,
   fetchFeedData,
   fetchFeedContent,
-}: {
-  configuration?: Partial<FeedDataProviderConfiguration> | undefined;
-  fetchFeedData: (feedId: string, options: { baseUrl: string }) => Promise<FeedData>;
-  fetchFeedContent: (feedData: FeedData, options: { baseUrl: string }) => Promise<FeedContent[]>;
-}) => {
-  const config = feedDataProviderConfigurationSchema.parse(configuration ?? {});
+}: CreateFeedDataProviderOptions) => {
+  const config = feedDataProviderConfigurationSchema.parse(configuration);
 
   const getFeedData = withCache(
     {

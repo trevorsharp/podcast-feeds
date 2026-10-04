@@ -1,19 +1,26 @@
 import * as z from 'zod';
 
+import type { ContentManager } from './content-manager';
+import type { PartialShape } from './utilities/zod';
+
 export const downloadManagerConfigurationSchema = z.object({
   maxConcurrentDownloads: z.number().min(1).default(1),
 });
 
-export type DownloadManagerConfiguration = z.infer<typeof downloadManagerConfigurationSchema>;
+type Configuration = PartialShape<typeof downloadManagerConfigurationSchema.shape>;
+
+type CreateDownloadManagerOptions = {
+  configuration: Configuration;
+  contentManager: ContentManager;
+  downloadContent: (contentId: string, contentManager: ContentManager) => Promise<void>;
+};
 
 export const createDownloadManager = ({
   configuration,
+  contentManager,
   downloadContent,
-}: {
-  configuration?: Partial<DownloadManagerConfiguration> | undefined;
-  downloadContent: (contentId: string) => Promise<void>;
-}) => {
-  const config = downloadManagerConfigurationSchema.parse(configuration ?? {});
+}: CreateDownloadManagerOptions) => {
+  const config = downloadManagerConfigurationSchema.parse(configuration);
 
   let currentDownloadCount = 0;
   const queue = new Array<() => Promise<void>>();
@@ -42,17 +49,22 @@ export const createDownloadManager = ({
     }
   };
 
-  const addToDownloadQueue = (contentId: string, options?: { addToFrontOfQueue?: boolean }) => {
-    const downloadTask = () => downloadContent(contentId);
+  const addToDownloadQueue = (contentId: string, options?: { addToFrontOfQueue?: boolean }) =>
+    contentManager.getContent(contentId).then((content) => {
+      if (content) {
+        return;
+      }
 
-    if (options?.addToFrontOfQueue) {
-      queue.unshift(downloadTask);
-    } else {
-      queue.push(downloadTask);
-    }
+      const downloadTask = () => downloadContent(contentId, contentManager);
 
-    startNextDownload();
-  };
+      if (options?.addToFrontOfQueue) {
+        queue.unshift(downloadTask);
+      } else {
+        queue.push(downloadTask);
+      }
+
+      startNextDownload();
+    });
 
   return { addToDownloadQueue };
 };

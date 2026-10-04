@@ -1,48 +1,45 @@
 import * as z from 'zod';
 
+import type { ContentManager } from './content-manager';
 import type { DownloadManager } from './download-manager';
 import type { StreamingProvider } from './streaming-provider';
-import { folderExists } from './utilities/folders';
+import type { PartialShape } from './utilities/zod';
 
 export const contentServerConfigurationSchema = z.object({
-  contentFolder: z.string().endsWith('/').optional(),
   downloadMissingContent: z.boolean().default(false),
-  getContentFileName: z.function({ input: [z.string()], output: z.string() }).default((value) => value),
 });
 
-export type ContentServerConfiguration = z.infer<typeof contentServerConfigurationSchema>;
+type Configuration = PartialShape<typeof contentServerConfigurationSchema.shape>;
 
-export const createContentServer = async ({
+type CreateContentServerOptions = { configuration: Configuration } & (
+  | { configuration: { downloadMissingContent: boolean }; downloadManager: DownloadManager }
+  | { configuration: { downloadMissingContent: false }; downloadManager?: DownloadManager }
+) &
+  (
+    | { contentManager: ContentManager; streamingProvider?: StreamingProvider }
+    | { contentManager?: ContentManager; streamingProvider: StreamingProvider }
+  );
+
+export const createContentServer = ({
   configuration,
-  streamingProvier,
   downloadManager,
-}: {
-  configuration?: Partial<ContentServerConfiguration> | undefined;
-  streamingProvier?: StreamingProvider;
-  downloadManager?: DownloadManager;
-}) => {
-  const config = contentServerConfigurationSchema.parse(configuration ?? {});
+  contentManager,
+  streamingProvider,
+}: CreateContentServerOptions) => {
+  const config = contentServerConfigurationSchema.parse(configuration);
 
-  if (config.contentFolder && !folderExists(config.contentFolder)) {
-    throw new Error(`Content folder (${config.contentFolder}) does not exist`);
-  }
+  const findContent = async (contentId: string) => {
+    const content = await contentManager?.getContent(contentId);
 
-  const getContent = async (contentId: string) => {
-    if (config.contentFolder) {
-      const contentFileName = config.getContentFileName(contentId);
-      const contentFilePath = `${config.contentFolder}${contentFileName}`;
-      const contentFile = Bun.file(contentFilePath);
-
-      if (await contentFile.exists()) {
-        return { fileName: contentFileName };
-      }
-
-      if (config.downloadMissingContent) {
-        downloadManager?.addToDownloadQueue(contentId, { addToFrontOfQueue: true });
-      }
+    if (content) {
+      return { fileName: content.fileName };
     }
 
-    const streamingUrl = await streamingProvier?.getStreamingUrl(contentId);
+    if (config.downloadMissingContent) {
+      downloadManager?.addToDownloadQueue(contentId, { addToFrontOfQueue: true });
+    }
+
+    const streamingUrl = await streamingProvider?.getStreamingUrl(contentId);
 
     if (streamingUrl) {
       return { redirectUrl: streamingUrl };
@@ -51,7 +48,7 @@ export const createContentServer = async ({
     return undefined;
   };
 
-  return { getContent };
+  return { findContent };
 };
 
 export type ContentServer = Awaited<ReturnType<typeof createContentServer>>;

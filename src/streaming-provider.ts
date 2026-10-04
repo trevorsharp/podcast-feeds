@@ -1,21 +1,21 @@
 import * as z from 'zod';
 
 import { withCache } from './utilities/cache';
+import type { PartialShape } from './utilities/zod';
 
 export const streamingProviderConfigurationSchema = z.object({
   cacheStreamingUrlTimeToLive: z.number().default(0),
 });
 
-export type StreamingProviderConfiguration = z.infer<typeof streamingProviderConfigurationSchema>;
+type Configuration = PartialShape<typeof streamingProviderConfigurationSchema.shape>;
 
-export const createStreamingProvider = ({
-  configuration,
-  fetchStreamingUrl,
-}: {
-  configuration?: Partial<StreamingProviderConfiguration> | undefined;
+type CreateStreamingProviderOptions = {
+  configuration: Configuration;
   fetchStreamingUrl: (contentId: string) => Promise<string>;
-}) => {
-  const config = streamingProviderConfigurationSchema.parse(configuration ?? {});
+};
+
+export const createStreamingProvider = ({ configuration, fetchStreamingUrl }: CreateStreamingProviderOptions) => {
+  const config = streamingProviderConfigurationSchema.parse(configuration);
 
   const getStreamingUrl = withCache(
     {

@@ -3,6 +3,7 @@ import z from 'zod';
 
 import type { ContentServer } from './content-server';
 import type { FeedGenerator } from './feed-generator';
+import type { PartialShape } from './utilities/zod';
 
 const urlPathRegex = /^\/(?:[^/]+(?:\/[^/]+)*)?$/;
 
@@ -15,18 +16,16 @@ export const webServerConfigurationSchema = z
     error: 'contentApiPath cannot be the same as contentServerPath',
   });
 
-export type WebServerConfiguration = z.infer<typeof webServerConfigurationSchema>;
+type Configuration = PartialShape<typeof webServerConfigurationSchema.shape>;
 
-export const createWebServer = ({
-  configuration,
-  feedGenerator,
-  contentServer,
-}: {
-  configuration: Partial<WebServerConfiguration>;
+type CreateWebServerOptions = {
+  configuration: Configuration;
   feedGenerator: FeedGenerator;
   contentServer: ContentServer;
-}) => {
-  const config = webServerConfigurationSchema.parse(configuration ?? {});
+};
+
+export const createWebServer = ({ configuration, feedGenerator, contentServer }: CreateWebServerOptions) => {
+  const config = webServerConfigurationSchema.parse(configuration);
 
   const webServer = new Hono();
 
@@ -44,14 +43,14 @@ export const createWebServer = ({
   webServer.get(`${config.contentApiPath}/:contentId`, async (context) => {
     const { contentId } = context.req.param();
 
-    const content = await contentServer.getContent(contentId);
-
-    if (content?.redirectUrl) {
-      return context.redirect(content.redirectUrl, 302);
-    }
+    const content = await contentServer.findContent(contentId);
 
     if (content?.fileName) {
       return context.redirect(`${config.contentServerPath}/${content.fileName}`, 302);
+    }
+
+    if (content?.redirectUrl) {
+      return context.redirect(content.redirectUrl, 302);
     }
 
     return context.text('Content is not available', 503, { 'Retry-After': '30' });

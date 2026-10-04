@@ -3,22 +3,24 @@ import * as z from 'zod';
 
 import type { DownloadManager } from './download-manager';
 import type { FeedDataProvider } from './feed-data-provider';
+import type { PartialShape } from './utilities/zod';
 
 export const feedGeneratorConfigurationSchema = z.object({
-  downloadLatestNumberOfItems: z.number().min(0).default(0),
+  downloadLatestNumberOfItems: z.number().min(0).optional(),
 });
 
-export type FeedGeneratorConfiguration = z.infer<typeof feedGeneratorConfigurationSchema>;
+type Configuration = PartialShape<typeof feedGeneratorConfigurationSchema.shape>;
+
+type CreateFeedGeneratorOptions = { configuration: Configuration; feedDataProvider: FeedDataProvider } & (
+  | { configuration: { downloadLatestNumberOfItems: number }; downloadManager: DownloadManager }
+  | { configuration: { downloadLatestNumberOfItems?: undefined }; downloadManager?: undefined }
+);
 
 export const createFeedGenerator = ({
   configuration,
   feedDataProvider,
   downloadManager,
-}: {
-  configuration?: Partial<FeedGeneratorConfiguration> | undefined;
-  feedDataProvider: FeedDataProvider;
-  downloadManager?: DownloadManager;
-}) => {
+}: CreateFeedGeneratorOptions) => {
   const config = feedGeneratorConfigurationSchema.parse(configuration);
 
   const generatePodcastFeed = async (feedId: string, options: { baseUrl: string }) => {
