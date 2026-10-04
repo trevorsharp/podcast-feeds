@@ -2,7 +2,7 @@ import { readdir } from 'node:fs/promises';
 
 import * as z from 'zod';
 
-import type { PartialShape } from './utilities/zod';
+import type { ConfigurationFrom } from './utilities/zod';
 
 const folderPathRegex = /^(?!.*\/$).+$/;
 
@@ -11,12 +11,10 @@ export const contentManagerConfigurationSchema = z.object({
   getContentFileName: z.function({ input: [z.string()], output: z.string() }),
 });
 
-type Configuration = PartialShape<typeof contentManagerConfigurationSchema.shape>;
-
-type createContentManagerOptions = { configuration: Configuration };
+type createContentManagerOptions = ConfigurationFrom<typeof contentManagerConfigurationSchema.shape>;
 
 export const createContentManager = async ({ configuration }: createContentManagerOptions) => {
-  const config = contentManagerConfigurationSchema.parse(configuration);
+  const config = contentManagerConfigurationSchema.parse(configuration ?? {});
 
   if (config.contentFolder) {
     try {
@@ -26,9 +24,11 @@ export const createContentManager = async ({ configuration }: createContentManag
     }
   }
 
+  const getContentFilePath = (contentId: string) => `${config.contentFolder}/${config.getContentFileName(contentId)}`;
+
   const getContent = async (contentId: string) => {
     const fileName = config.getContentFileName(contentId);
-    const filePath = `${config.contentFolder}/${fileName}`;
+    const filePath = getContentFilePath(contentId);
     const contentFile = Bun.file(filePath);
 
     const fileExists = await contentFile.exists();
@@ -36,7 +36,7 @@ export const createContentManager = async ({ configuration }: createContentManag
     return fileExists ? { fileName, filePath } : undefined;
   };
 
-  return { ...config, getContent };
+  return { ...config, getContentFilePath, getContent };
 };
 
 export type ContentManager = Awaited<ReturnType<typeof createContentManager>>;

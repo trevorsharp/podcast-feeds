@@ -3,54 +3,47 @@ import z from 'zod';
 
 import type { ContentServer } from './content-server';
 import type { FeedGenerator } from './feed-generator';
-import type { PartialShape } from './utilities/zod';
+import type { ConfigurationFrom } from './utilities/zod';
 
-const urlPathRegex = /^\/(?:[^/]+(?:\/[^/]+)*)?$/;
+const urlPathPartSchema = z.string().regex(/^$|^\/[^/].*[^/]$/);
 
-export const webServerConfigurationSchema = z
-  .object({
-    contentApiPath: z.string().regex(urlPathRegex),
-    contentServerPath: z.string().regex(urlPathRegex).default('/content'),
-  })
-  .refine(({ contentApiPath, contentServerPath }) => contentApiPath.toLowerCase() !== contentServerPath.toLowerCase(), {
-    error: 'contentApiPath cannot be the same as contentServerPath',
-  });
+const webServerConfigurationSchema = z.object({
+  feedApiRoute: z.templateLiteral([urlPathPartSchema, '/:feedId', urlPathPartSchema]).default('/:feedId/feed'),
+  contentApiRoute: z.templateLiteral([urlPathPartSchema, '/:contentId', urlPathPartSchema]),
+});
 
-type Configuration = PartialShape<typeof webServerConfigurationSchema.shape>;
-
-type CreateWebServerOptions = {
-  configuration: Configuration;
+type CreateWebServerOptions = ConfigurationFrom<typeof webServerConfigurationSchema.shape> & {
   feedGenerator: FeedGenerator;
   contentServer: ContentServer;
 };
 
 export const createWebServer = ({ configuration, feedGenerator, contentServer }: CreateWebServerOptions) => {
-  const config = webServerConfigurationSchema.parse(configuration);
+  const config = webServerConfigurationSchema.parse(configuration ?? {});
 
   const webServer = new Hono();
 
-  webServer.get('/:feedId/feed', async (context) => {
-    const { feedId } = context.req.param();
+  webServer.get(config.feedApiRoute, async (context) => {
+    const feedId = context.req.param('feedId');
     const host = context.req.header('host') ?? '';
     const isHttps = context.req.header('x-forwarded-proto') === 'https';
     const baseUrl = `${isHttps ? 'https' : 'http'}://${host}`;
 
     const podcastFeed = await feedGenerator.generatePodcastFeed(feedId, { baseUrl });
 
+    if (!podcastFeed) {
+      return context.text('Could not generate podcast feed', 500);
+    }
+
     return context.text(podcastFeed, 200, { 'Content-Type': 'application/rss+xml' });
   });
 
-  webServer.get(`${config.contentApiPath}/:contentId`, async (context) => {
-    const { contentId } = context.req.param();
+  webServer.get(config.contentApiRoute, async (context) => {
+    const contentId = context.req.param('contentId');
 
-    const content = await contentServer.findContent(contentId);
+    const contentUrl = await contentServer.getContentUrl(contentId);
 
-    if (content?.fileName) {
-      return context.redirect(`${config.contentServerPath}/${content.fileName}`, 302);
-    }
-
-    if (content?.redirectUrl) {
-      return context.redirect(content.redirectUrl, 302);
+    if (contentUrl) {
+      return context.redirect(contentUrl, 302);
     }
 
     return context.text('Content is not available', 503, { 'Retry-After': '30' });

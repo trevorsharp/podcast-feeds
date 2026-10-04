@@ -1,16 +1,16 @@
 import * as z from 'zod';
 
 import type { ContentManager } from './content-manager';
-import type { PartialShape } from './utilities/zod';
+import { addEventListener } from './events';
+import type { ConfigurationFrom } from './utilities/zod';
 
 export const downloadManagerConfigurationSchema = z.object({
   maxConcurrentDownloads: z.number().min(1).default(1),
+  downloadLatestNumberOfItems: z.number().min(1).default(1),
+  downloadMissingContent: z.boolean().default(true),
 });
 
-type Configuration = PartialShape<typeof downloadManagerConfigurationSchema.shape>;
-
-type CreateDownloadManagerOptions = {
-  configuration: Configuration;
+type CreateDownloadManagerOptions = ConfigurationFrom<typeof downloadManagerConfigurationSchema.shape> & {
   contentManager: ContentManager;
   downloadContent: (contentId: string, contentManager: ContentManager) => Promise<void>;
 };
@@ -20,27 +20,27 @@ export const createDownloadManager = ({
   contentManager,
   downloadContent,
 }: CreateDownloadManagerOptions) => {
-  const config = downloadManagerConfigurationSchema.parse(configuration);
+  const config = downloadManagerConfigurationSchema.parse(configuration ?? {});
 
-  let currentDownloadCount = 0;
-  const queue = new Array<() => Promise<void>>();
+  const activeDownloads = new Set<string>();
+  const queue = new Array<string>();
 
   const startNextDownload = () => {
     while (queue.length > 0) {
-      if (currentDownloadCount >= config.maxConcurrentDownloads) {
+      if (activeDownloads.size >= config.maxConcurrentDownloads) {
         return;
       }
 
-      const downloadTask = queue.shift();
+      const contentId = queue.shift();
 
-      if (downloadTask === undefined) {
+      if (contentId === undefined) {
         return;
       }
 
-      currentDownloadCount++;
+      activeDownloads.add(contentId);
 
-      downloadTask().finally(() => {
-        currentDownloadCount--;
+      downloadContent(contentId, contentManager).finally(() => {
+        activeDownloads.delete(contentId);
 
         if (queue.length > 0) {
           startNextDownload();
@@ -51,20 +51,31 @@ export const createDownloadManager = ({
 
   const addToDownloadQueue = (contentId: string, options?: { addToFrontOfQueue?: boolean }) =>
     contentManager.getContent(contentId).then((content) => {
-      if (content) {
+      if (!!content || queue.includes(contentId) || activeDownloads.has(contentId)) {
         return;
       }
 
-      const downloadTask = () => downloadContent(contentId, contentManager);
-
       if (options?.addToFrontOfQueue) {
-        queue.unshift(downloadTask);
+        queue.unshift(contentId);
       } else {
-        queue.push(downloadTask);
+        queue.push(contentId);
       }
 
       startNextDownload();
     });
+
+  if (config.downloadLatestNumberOfItems) {
+    addEventListener('feed-data-with-content-loaded', ({ content }) =>
+      content
+        .sort((a, b) => b.date.getTime() - a.date.getTime())
+        .filter((_, index) => index < config.downloadLatestNumberOfItems)
+        .forEach(({ contentId }) => addToDownloadQueue(contentId)),
+    );
+  }
+
+  if (config.downloadMissingContent) {
+    addEventListener('content-missing', ({ contentId }) => addToDownloadQueue(contentId, { addToFrontOfQueue: true }));
+  }
 
   return { addToDownloadQueue };
 };

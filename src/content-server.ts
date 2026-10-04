@@ -1,20 +1,17 @@
-import * as z from 'zod';
+import z from 'zod';
 
 import type { ContentManager } from './content-manager';
-import type { DownloadManager } from './download-manager';
+import { sendEvent } from './events';
 import type { StreamingProvider } from './streaming-provider';
-import type { PartialShape } from './utilities/zod';
+import type { ConfigurationFrom } from './utilities/zod';
 
-export const contentServerConfigurationSchema = z.object({
-  downloadMissingContent: z.boolean().default(false),
+const contentServerConfigurationSchema = z.object({
+  getContentServerUrl: z
+    .function({ input: [z.object({ fileName: z.string() })], output: z.string() })
+    .default((arg0) => `/content/${arg0?.fileName}`),
 });
 
-type Configuration = PartialShape<typeof contentServerConfigurationSchema.shape>;
-
-type CreateContentServerOptions = { configuration: Configuration } & (
-  | { configuration: { downloadMissingContent: boolean }; downloadManager: DownloadManager }
-  | { configuration: { downloadMissingContent: false }; downloadManager?: DownloadManager }
-) &
+type CreateContentServerOptions = ConfigurationFrom<typeof contentServerConfigurationSchema.shape> &
   (
     | { contentManager: ContentManager; streamingProvider?: StreamingProvider }
     | { contentManager?: ContentManager; streamingProvider: StreamingProvider }
@@ -22,33 +19,24 @@ type CreateContentServerOptions = { configuration: Configuration } & (
 
 export const createContentServer = ({
   configuration,
-  downloadManager,
   contentManager,
   streamingProvider,
 }: CreateContentServerOptions) => {
-  const config = contentServerConfigurationSchema.parse(configuration);
+  const config = contentServerConfigurationSchema.parse(configuration ?? {});
 
-  const findContent = async (contentId: string) => {
+  const getContentUrl = async (contentId: string) => {
     const content = await contentManager?.getContent(contentId);
 
     if (content) {
-      return { fileName: content.fileName };
+      return config.getContentServerUrl(content);
     }
 
-    if (config.downloadMissingContent) {
-      downloadManager?.addToDownloadQueue(contentId, { addToFrontOfQueue: true });
-    }
+    sendEvent('content-missing', { contentId });
 
-    const streamingUrl = await streamingProvider?.getStreamingUrl(contentId);
-
-    if (streamingUrl) {
-      return { redirectUrl: streamingUrl };
-    }
-
-    return undefined;
+    return await streamingProvider?.getStreamingUrl(contentId);
   };
 
-  return { findContent };
+  return { getContentUrl };
 };
 
 export type ContentServer = Awaited<ReturnType<typeof createContentServer>>;

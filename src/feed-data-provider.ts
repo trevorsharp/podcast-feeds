@@ -1,39 +1,17 @@
 import * as z from 'zod';
 
-import { withCache } from './utilities/cache';
-import type { PartialShape } from './utilities/zod';
+import { withCache } from './cache';
+import { sendEvent } from './events';
+import type { FeedContent, FeedData } from './types';
+import type { ConfigurationFrom } from './utilities/zod';
 
-export type FeedData = {
-  feedId: string;
-  title: string;
-  description: string;
-  feedUrl: string;
-  sourceUrl: string;
-  imageUrl: string;
-};
-
-export type FeedContent = {
-  contentId: string;
-  title: string;
-  description: string;
-  date: Date;
-  duration?: number | undefined;
-  contentUrl: string;
-  mimeType: 'video/mp4' | 'application/x-mpegURL' | 'audio/mp3';
-  sourceUrl: string;
-  imageUrl?: string;
-};
-
-export const feedDataProviderConfigurationSchema = z.object({
+const feedDataProviderConfigurationSchema = z.object({
   cacheFeedDataTimeToLive: z.number().default(0),
   cacheFeedContentTimeToLive: z.number().default(0),
 });
 
-type Configuration = PartialShape<typeof feedDataProviderConfigurationSchema.shape>;
-
-type CreateFeedDataProviderOptions = {
-  configuration: Configuration;
-  fetchFeedData: (feedId: string, options: { baseUrl: string }) => Promise<FeedData>;
+type CreateFeedDataProviderOptions = ConfigurationFrom<typeof feedDataProviderConfigurationSchema.shape> & {
+  fetchFeedData: (feedId: string, options: { baseUrl: string }) => Promise<FeedData | undefined>;
   fetchFeedContent: (feedData: FeedData, options: { baseUrl: string }) => Promise<FeedContent[]>;
 };
 
@@ -42,7 +20,7 @@ export const createFeedDataProvider = ({
   fetchFeedData,
   fetchFeedContent,
 }: CreateFeedDataProviderOptions) => {
-  const config = feedDataProviderConfigurationSchema.parse(configuration);
+  const config = feedDataProviderConfigurationSchema.parse(configuration ?? {});
 
   const getFeedData = withCache(
     {
@@ -62,8 +40,18 @@ export const createFeedDataProvider = ({
 
   const getFeedDataWithContent = async (feedId: string, options: { baseUrl: string }) => {
     const feedData = await getFeedData(feedId, options);
+
+    if (!feedData) {
+      return undefined;
+    }
+
     const content = await getFeedContent(feedData, options);
-    return { ...feedData, content };
+
+    const feedDataWithContent = { ...feedData, content };
+
+    sendEvent('feed-data-with-content-loaded', feedDataWithContent);
+
+    return feedDataWithContent;
   };
 
   return { getFeedDataWithContent };

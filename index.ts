@@ -1,7 +1,10 @@
+export * from './src/cache';
 export * from './src/content-manager';
 export * from './src/content-server';
 export * from './src/download-manager';
+export * from './src/events';
 export * from './src/feed-data-provider';
 export * from './src/feed-generator';
 export * from './src/streaming-provider';
+export type * from './src/types';
 export * from './src/web-server';

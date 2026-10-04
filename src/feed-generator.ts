@@ -1,37 +1,15 @@
 import { Podcast } from 'podcast';
-import * as z from 'zod';
 
-import type { DownloadManager } from './download-manager';
 import type { FeedDataProvider } from './feed-data-provider';
-import type { PartialShape } from './utilities/zod';
 
-export const feedGeneratorConfigurationSchema = z.object({
-  downloadLatestNumberOfItems: z.number().min(0).optional(),
-});
+type CreateFeedGeneratorOptions = { feedDataProvider: FeedDataProvider };
 
-type Configuration = PartialShape<typeof feedGeneratorConfigurationSchema.shape>;
-
-type CreateFeedGeneratorOptions = { configuration: Configuration; feedDataProvider: FeedDataProvider } & (
-  | { configuration: { downloadLatestNumberOfItems: number }; downloadManager: DownloadManager }
-  | { configuration: { downloadLatestNumberOfItems?: undefined }; downloadManager?: undefined }
-);
-
-export const createFeedGenerator = ({
-  configuration,
-  feedDataProvider,
-  downloadManager,
-}: CreateFeedGeneratorOptions) => {
-  const config = feedGeneratorConfigurationSchema.parse(configuration);
-
+export const createFeedGenerator = ({ feedDataProvider }: CreateFeedGeneratorOptions) => {
   const generatePodcastFeed = async (feedId: string, options: { baseUrl: string }) => {
     const feedData = await feedDataProvider.getFeedDataWithContent(feedId, options);
 
-    const { downloadLatestNumberOfItems } = config;
-
-    if (downloadLatestNumberOfItems) {
-      feedData.content
-        .filter((_, index) => index < downloadLatestNumberOfItems)
-        .forEach(({ contentId }) => downloadManager?.addToDownloadQueue(contentId));
+    if (!feedData) {
+      return undefined;
     }
 
     const rssFeed = new Podcast({
@@ -54,10 +32,10 @@ export const createFeedGenerator = ({
         itunesImage: content.imageUrl,
         enclosure: {
           url: content.contentUrl,
-          type: content.mimeType === 'application/x-mpegURL' ? 'video/mp4' : content.mimeType,
+          type: content.contentType === 'MP3' ? 'audio/mp3' : 'video/mp4',
         },
         customElements:
-          content.mimeType === 'application/x-mpegURL'
+          content.contentType === 'HLS'
             ? [
                 {
                   'podcast:alternateEnclosure': [
