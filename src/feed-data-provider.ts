@@ -35,10 +35,12 @@ export type FeedContent = {
 };
 
 export const createFeedDataProvider = <TFeedDataOptions extends BaseFeedOptions = BaseFeedOptions>(
-  config: FeedDataProviderConfiguration,
+  configuration: unknown,
   fetchFeedData: (feedId: string, options: TFeedDataOptions) => Promise<FeedData>,
   fetchFeedContent: (feedData: FeedData, options: TFeedDataOptions) => Promise<FeedContent[]>,
 ) => {
+  const config = feedDataProviderConfigurationSchema.parse(configuration);
+
   const getFeedData = withCache(
     {
       cacheKey: 'feed-data',

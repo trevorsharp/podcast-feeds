@@ -11,9 +11,11 @@ export type StreamingProviderConfiguration = z.infer<typeof streamingProviderCon
 export type BaseStreamingOptions = object | undefined;
 
 export const createStreamingProvider = <TStreamingOptions extends BaseStreamingOptions = BaseStreamingOptions>(
-  config: StreamingProviderConfiguration,
+  configuration: unknown,
   fetchStreamingUrl: (contentId: string, options?: TStreamingOptions) => Promise<string>,
 ) => {
+  const config = streamingProviderConfigurationSchema.parse(configuration);
+
   const getStreamingUrl = withCache(
     {
       cacheKey: 'streaming-url',

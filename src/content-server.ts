@@ -20,13 +20,15 @@ export const createContentServer = async <
   TStreamingOptions extends BaseStreamingOptions = BaseStreamingOptions,
   TDownloadOptions extends BaseDownloadOptions = BaseDownloadOptions,
 >(
-  config: ContentServerConfiguration,
+  configuration: unknown,
   getContentFileExtension?: (contentId: string, options?: TContentOptions) => string,
   streamingProvier?: StreamingProvider<TStreamingOptions>,
   mapContentOptionsToStreamingOptions?: (contentOptions: TContentOptions) => TStreamingOptions,
   downloadManager?: DownloadManager<TDownloadOptions>,
   mapContentOptionsToDownloadOptions?: (contentOptions: TContentOptions) => TDownloadOptions,
 ) => {
+  const config = contentServerConfigurationSchema.parse(configuration);
+
   if (config.contentFolder && !folderExists(config.contentFolder)) {
     throw new Error(`Content folder (${config.contentFolder}) does not exist`);
   }

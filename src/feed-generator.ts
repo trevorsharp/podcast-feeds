@@ -14,11 +14,13 @@ export const createFeedGenerator = <
   TFeedDataOptions extends BaseFeedOptions = BaseFeedOptions,
   TDownloadOptions extends BaseDownloadOptions = BaseDownloadOptions,
 >(
-  config: FeedGeneratorConfiguration,
+  configuration: unknown,
   feedDataProvider: FeedDataProvider<TFeedDataOptions>,
   downloadManager?: DownloadManager<TDownloadOptions>,
   mapFeedOptionsToDownloadOptions?: (feedOptions: TFeedDataOptions) => TDownloadOptions | undefined,
 ) => {
+  const config = feedGeneratorConfigurationSchema.parse(configuration);
+
   const generatePodcastFeed = async (feedId: string, options: TFeedDataOptions) => {
     const feedData = await feedDataProvider.getFeedDataWithContent(feedId, options);
 

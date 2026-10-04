@@ -9,9 +9,11 @@ export type DownloadManagerConfiguration = z.infer<typeof downloadManagerConfigu
 export type BaseDownloadOptions = { addToFrontOfQueue?: boolean } | undefined;
 
 export const createDownloadManager = <TDownloadOptions extends BaseDownloadOptions = BaseDownloadOptions>(
-  config: DownloadManagerConfiguration,
+  configuration: unknown,
   downloadContent: (contentId: string, options?: TDownloadOptions) => Promise<void>,
 ) => {
+  const config = downloadManagerConfigurationSchema.parse(configuration);
+
   let currentDownloadCount = 0;
   const queue = new Array<() => Promise<void>>();
 
