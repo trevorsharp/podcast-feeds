@@ -6,9 +6,7 @@ import type { StreamingProvider } from './streaming-provider';
 import type { ConfigurationFrom } from './utilities/zod';
 
 const contentServerConfigurationSchema = z.object({
-  getContentServerUrl: z
-    .function({ input: [z.object({ fileName: z.string() })], output: z.string() })
-    .default((arg0) => `/content/${arg0?.fileName}`),
+  getContentServerUrl: z.function({ input: [z.object({ fileName: z.string() })], output: z.string() }),
 });
 
 type CreateContentServerOptions = ConfigurationFrom<typeof contentServerConfigurationSchema.shape> &
