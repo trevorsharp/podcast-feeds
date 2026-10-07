@@ -8,7 +8,7 @@ const streamingProviderConfigurationSchema = z.object({
 });
 
 type CreateStreamingProviderOptions = ConfigurationFrom<typeof streamingProviderConfigurationSchema.shape> & {
-  fetchStreamingUrl: (contentId: string) => Promise<string>;
+  fetchStreamingUrl: (contentId: string) => Promise<string | undefined>;
 };
 
 export const createStreamingProvider = ({ configuration, fetchStreamingUrl }: CreateStreamingProviderOptions) => {

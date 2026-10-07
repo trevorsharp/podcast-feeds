@@ -49,20 +49,25 @@ export const createDownloadManager = ({
     }
   };
 
-  const addToDownloadQueue = (contentId: string, options?: { addToFrontOfQueue?: boolean }) =>
-    contentManager.getContent(contentId).then((content) => {
-      if (!!content || queue.includes(contentId) || activeDownloads.has(contentId)) {
-        return;
-      }
+  const addToDownloadQueue = async (contentId: string, options?: { addToFrontOfQueue?: boolean }) => {
+    if (!contentManager.getContentFilePath(contentId)) {
+      return;
+    }
 
-      if (options?.addToFrontOfQueue) {
-        queue.unshift(contentId);
-      } else {
-        queue.push(contentId);
-      }
+    const content = await contentManager.getContent(contentId);
+    
+    if (!!content || queue.includes(contentId) || activeDownloads.has(contentId)) {
+      return;
+    }
 
-      startNextDownload();
-    });
+    if (options?.addToFrontOfQueue) {
+      queue.unshift(contentId);
+    } else {
+      queue.push(contentId);
+    }
+
+    startNextDownload();
+  };
 
   if (config.downloadLatestNumberOfItems) {
     addEventListener('feed-data-with-content-loaded', ({ content }) =>

@@ -1,5 +1,5 @@
-import { readdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { readdir, realpath } from 'node:fs/promises';
+import { basename, dirname, resolve } from 'node:path';
 
 import * as z from 'zod';
 
@@ -17,24 +17,42 @@ type createContentManagerOptions = ConfigurationFrom<typeof contentManagerConfig
 export const createContentManager = async ({ configuration }: createContentManagerOptions) => {
   const config = contentManagerConfigurationSchema.parse(configuration ?? {});
 
-  if (config.contentFolder) {
-    try {
-      await readdir(config.contentFolder);
-    } catch {
-      throw new Error(`contentFolder (${config.contentFolder}) does not exist`);
-    }
+  let contentRoot: string;
+  try {
+    await readdir(config.contentFolder);
+    contentRoot = await realpath(config.contentFolder);
+  } catch {
+    throw new Error(`contentFolder (${config.contentFolder}) does not exist`);
   }
 
-  const getContentFilePath = (contentId: string) => join(config.contentFolder, config.getContentFileName(contentId));
+  const getContentFilePath = (contentId: string) => {
+    const fileName = config.getContentFileName(contentId);
+
+    if (!fileName || fileName.includes('\0')) {
+      return undefined;
+    }
+
+    const filePath = resolve(contentRoot, fileName);
+
+    if (dirname(filePath) !== contentRoot || basename(filePath) !== fileName) {
+      return undefined;
+    }
+
+    return filePath;
+  };
 
   const getContent = async (contentId: string) => {
-    const fileName = config.getContentFileName(contentId);
     const filePath = getContentFilePath(contentId);
+
+    if (!filePath) {
+      return undefined;
+    }
+
     const contentFile = Bun.file(filePath);
 
     const fileExists = await contentFile.exists();
 
-    return fileExists ? { fileName, filePath } : undefined;
+    return fileExists ? { fileName: basename(filePath), filePath } : undefined;
   };
 
   return { ...config, getContentFilePath, getContent };
