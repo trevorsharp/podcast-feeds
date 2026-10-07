@@ -5,7 +5,7 @@ import type { ContentServer } from './content-server';
 import type { FeedGenerator } from './feed-generator';
 import type { ConfigurationFrom } from './utilities/zod';
 
-const urlPathPartSchema = z.string().regex(/^$|^\/[^/].*[^/]$/);
+const urlPathPartSchema = z.string().regex(/^(?:\/[^/]+)*$/);
 
 const webServerConfigurationSchema = z.object({
   feedApiRoute: z.templateLiteral([urlPathPartSchema, '/:feedId', urlPathPartSchema]).default('/:feedId/feed'),
@@ -24,9 +24,14 @@ export const createWebServer = ({ configuration, feedGenerator, contentServer }:
 
   webServer.get(config.feedApiRoute, async (context) => {
     const feedId = context.req.param('feedId');
-    const host = context.req.header('host') ?? '';
-    const isHttps = context.req.header('x-forwarded-proto') === 'https';
-    const baseUrl = `${isHttps ? 'https' : 'http'}://${host}`;
+    const requestUrl = new URL(context.req.url);
+    const forwardedProtocol = context.req.header('x-forwarded-proto');
+
+    if (forwardedProtocol === 'http' || forwardedProtocol === 'https') {
+      requestUrl.protocol = `${forwardedProtocol}:`;
+    }
+
+    const baseUrl = requestUrl.origin;
 
     const podcastFeed = await feedGenerator.generatePodcastFeed(feedId, { baseUrl });
 

@@ -1,7 +1,7 @@
 import * as z from 'zod';
 
 import { withCache } from './cache';
-import { sendEvent } from './events';
+import type { EventBus } from './event-bus';
 import type { FeedContent, FeedData } from './types';
 import type { ConfigurationFrom } from './utilities/zod';
 
@@ -11,12 +11,14 @@ const feedDataProviderConfigurationSchema = z.object({
 });
 
 type CreateFeedDataProviderOptions = ConfigurationFrom<typeof feedDataProviderConfigurationSchema.shape> & {
+  eventBus: EventBus;
   fetchFeedData: (feedId: string, options: { baseUrl: string }) => Promise<FeedData | undefined>;
   fetchFeedContent: (feedData: FeedData, options: { baseUrl: string }) => Promise<FeedContent[]>;
 };
 
 export const createFeedDataProvider = ({
   configuration,
+  eventBus,
   fetchFeedData,
   fetchFeedContent,
 }: CreateFeedDataProviderOptions) => {
@@ -49,7 +51,7 @@ export const createFeedDataProvider = ({
 
     const feedDataWithContent = { ...feedData, content };
 
-    sendEvent('feed-data-with-content-loaded', feedDataWithContent);
+    eventBus.sendEvent('feed-data-with-content-loaded', feedDataWithContent);
 
     return feedDataWithContent;
   };

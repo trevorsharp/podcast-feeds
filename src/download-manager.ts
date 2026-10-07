@@ -1,22 +1,24 @@
 import * as z from 'zod';
 
 import type { ContentManager } from './content-manager';
-import { addEventListener } from './events';
+import type { EventBus } from './event-bus';
 import type { ConfigurationFrom } from './utilities/zod';
 
 export const downloadManagerConfigurationSchema = z.object({
-  maxConcurrentDownloads: z.number().min(1).default(1),
-  downloadLatestNumberOfItems: z.number().min(1).default(1),
+  maxConcurrentDownloads: z.number().int().min(1).default(1),
+  downloadLatestNumberOfItems: z.number().int().min(0).default(1),
   downloadMissingContent: z.boolean().default(true),
 });
 
 type CreateDownloadManagerOptions = ConfigurationFrom<typeof downloadManagerConfigurationSchema.shape> & {
+  eventBus: EventBus;
   contentManager: ContentManager;
   downloadContent: (contentId: string, contentManager: ContentManager) => Promise<void>;
 };
 
 export const createDownloadManager = ({
   configuration,
+  eventBus,
   contentManager,
   downloadContent,
 }: CreateDownloadManagerOptions) => {
@@ -39,13 +41,15 @@ export const createDownloadManager = ({
 
       activeDownloads.add(contentId);
 
-      downloadContent(contentId, contentManager).finally(() => {
-        activeDownloads.delete(contentId);
+      downloadContent(contentId, contentManager)
+        .catch(() => {})
+        .finally(() => {
+          activeDownloads.delete(contentId);
 
-        if (queue.length > 0) {
-          startNextDownload();
-        }
-      });
+          if (queue.length > 0) {
+            startNextDownload();
+          }
+        });
     }
   };
 
@@ -55,7 +59,7 @@ export const createDownloadManager = ({
     }
 
     const content = await contentManager.getContent(contentId);
-    
+
     if (!!content || queue.includes(contentId) || activeDownloads.has(contentId)) {
       return;
     }
@@ -70,7 +74,7 @@ export const createDownloadManager = ({
   };
 
   if (config.downloadLatestNumberOfItems) {
-    addEventListener('feed-data-with-content-loaded', ({ content }) =>
+    eventBus.addEventListener('feed-data-with-content-loaded', ({ content }) =>
       content
         .sort((a, b) => b.date.getTime() - a.date.getTime())
         .filter((_, index) => index < config.downloadLatestNumberOfItems)
@@ -79,7 +83,9 @@ export const createDownloadManager = ({
   }
 
   if (config.downloadMissingContent) {
-    addEventListener('content-missing', ({ contentId }) => addToDownloadQueue(contentId, { addToFrontOfQueue: true }));
+    eventBus.addEventListener('content-missing', ({ contentId }) =>
+      addToDownloadQueue(contentId, { addToFrontOfQueue: true }),
+    );
   }
 
   return { addToDownloadQueue };
